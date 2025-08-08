@@ -1,28 +1,47 @@
-import contextlib
-from fastapi import FastAPI
-import os
+"""Production server entry point."""
+import argparse
+import uvicorn
 
-from aws_mcp_server import create_gl_aws_mcp_server
-from github_mcp_server import create_gl_github_mcp_server
+from app import app
+from config import settings
 
-github_mcp = create_gl_github_mcp_server()
-aws_mcp = create_gl_aws_mcp_server()
-
-# Create a combined lifespan to manage both session managers
-@contextlib.asynccontextmanager
-async def lifespan(app: FastAPI):
-    async with contextlib.AsyncExitStack() as stack:
-        await stack.enter_async_context(github_mcp.session_manager.run())
-        await stack.enter_async_context(aws_mcp.session_manager.run())
-        yield
-
-
-app = FastAPI(lifespan=lifespan)
-app.mount("/github", github_mcp.streamable_http_app())
-app.mount("/aws", aws_mcp.streamable_http_app())
-
-PORT = os.environ.get("PORT", 10000)
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description="GL MCP Hub Server")
+    parser.add_argument(
+        "--port", "-p",
+        type=int,
+        default=settings.PORT,
+        help=f"Port to run the server on (default: {settings.PORT})"
+    )
+    parser.add_argument(
+        "--host",
+        type=str,
+        default=settings.HOST,
+        help=f"Host to bind to (default: {settings.HOST})"
+    )
+    parser.add_argument(
+        "--reload",
+        action="store_true",
+        default=settings.DEBUG,
+        help="Enable auto-reload (default: based on DEBUG setting)"
+    )
+    return parser.parse_args()
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=PORT)
+    args = parse_args()
+    
+    print(f"🚀 Starting GL MCP Hub on {args.host}:{args.port}")
+    print(f"📝 Environment: {settings.ENVIRONMENT}")
+    print(f"🐛 Debug mode: {settings.DEBUG}")
+    print(f"🔄 Reload: {args.reload}")
+    print(f"🏥 Health check: http://{args.host}:{args.port}/health")
+    
+    uvicorn.run(
+        "app:app",
+        host=args.host,
+        port=args.port,
+        reload=args.reload,
+        access_log=not settings.is_production,
+        log_level="info" if not settings.DEBUG else "debug"
+    )
