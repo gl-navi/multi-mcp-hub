@@ -1,58 +1,127 @@
 authorization_codes = {}
 tokens = {}
 
-# this is just a quick test server for MCP auth, not production, just to see how the flow works
-from fastapi import FastAPI, Request, HTTPException, Depends
+
+# MCP Authorization Reference Implementation
+# Implements https://modelcontextprotocol.io/specification/draft/basic/authorization
+# Endpoints and responses follow the spec as closely as possible.
+from fastapi import FastAPI, Request, HTTPException, Depends, Form
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.security import OAuth2PasswordBearer
 from typing import Optional
+from sqlalchemy.orm import Session
+from datetime import datetime
 import secrets
 
-app = FastAPI(title="MCP Auth Test Server")
+from database import get_db, AuthCode, AccessToken, Client
 
-authorization_codes = {}  # just storing codes in memory for now
-tokens = {}  # same for tokens, not persistent
+app = FastAPI(title="MCP Auth Reference Server")
+
+@app.get("/")
+def health_check():
+    return {"status": "ok", "message": "MCP Authorization Server is running"}
+
+# Pre-register a test client for demo purposes
+def create_test_client():
+    db = next(get_db())
+    existing = db.query(Client).filter(Client.client_id == "test_client").first()
+    if not existing:
+        test_client = Client(
+            client_id="test_client",
+            client_name="Test MCP Client", 
+            redirect_uris='["http://localhost:3000/callback"]'
+        )
+        db.add(test_client)
+        db.commit()
+    db.close()
+
+create_test_client()
 
 
-# this is the authorize endpoint, just fakes a login and gives back a code
+# [Spec §2.1] Authorization Endpoint
+# GET /authorize?response_type=code&client_id=...&redirect_uri=...&state=...
 @app.get("/authorize")
-def authorize(response_type: str, client_id: str, redirect_uri: str, state: Optional[str] = None):
-    # not doing any real auth, just handing out codes
+def authorize(
+    response_type: str,
+    client_id: str,
+    redirect_uri: str,
+    state: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    # Only 'code' is supported as per spec
     if response_type != "code":
-        raise HTTPException(status_code=400, detail="Unsupported response_type")
+        return RedirectResponse(f"{redirect_uri}?error=unsupported_response_type" + (f"&state={state}" if state else ""), status_code=302)
+    
+    # Check if client exists
+    client = db.query(Client).filter(Client.client_id == client_id).first()
+    if not client:
+        return RedirectResponse(f"{redirect_uri}?error=invalid_client" + (f"&state={state}" if state else ""), status_code=302)
+    
+    # In a real app, authenticate user and get consent here
     code = secrets.token_urlsafe(16)
-    authorization_codes[code] = {"client_id": client_id, "redirect_uri": redirect_uri}
+    auth_code = AuthCode(code=code, client_id=client_id, redirect_uri=redirect_uri)
+    db.add(auth_code)
+    db.commit()
+    
+    # [Spec §2.1.2] Redirect with code and state
     redirect_url = f"{redirect_uri}?code={code}"
     if state:
         redirect_url += f"&state={state}"
-    return RedirectResponse(redirect_url)
+    return RedirectResponse(redirect_url, status_code=302)
 
 
-# this is the token endpoint, just swaps code for a token, no checks
+# [Spec §2.2] Token Endpoint
+# POST /token (application/x-www-form-urlencoded)
 @app.post("/token")
-def token(grant_type: str = "authorization_code", code: str = None, redirect_uri: str = None, client_id: str = None):
-    if grant_type != "authorization_code" or code not in authorization_codes:
-        raise HTTPException(status_code=400, detail="Invalid grant or code")
-    auth = authorization_codes.pop(code)
-    if auth["redirect_uri"] != redirect_uri or auth["client_id"] != client_id:
-        raise HTTPException(status_code=400, detail="Invalid redirect_uri or client_id")
-    access_token = secrets.token_urlsafe(32)
-    tokens[access_token] = {"client_id": client_id}
-    return {"access_token": access_token, "token_type": "bearer"}
+def token(
+    grant_type: str = Form(...),
+    code: str = Form(...),
+    redirect_uri: str = Form(...),
+    client_id: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    # Only 'authorization_code' is supported
+    if grant_type != "authorization_code":
+        return JSONResponse(status_code=400, content={"error": "unsupported_grant_type"})
+    
+    # Find and validate the auth code
+    auth_code = db.query(AuthCode).filter(
+        AuthCode.code == code,
+        AuthCode.used == False,
+        AuthCode.expires_at > datetime.utcnow()
+    ).first()
+    
+    if not auth_code:
+        return JSONResponse(status_code=400, content={"error": "invalid_grant"})
+    
+    if auth_code.redirect_uri != redirect_uri or auth_code.client_id != client_id:
+        return JSONResponse(status_code=400, content={"error": "invalid_request"})
+    
+    # Mark code as used
+    auth_code.used = True
+    
+    # Create access token
+    access_token_value = secrets.token_urlsafe(32)
+    access_token = AccessToken(token=access_token_value, client_id=client_id)
+    db.add(access_token)
+    db.commit()
+    
+    # [Spec §2.2.2] Return access_token and token_type
+    return {"access_token": access_token_value, "token_type": "bearer"}
 
-def get_current_token(token: str = Depends(oauth2_scheme)):
 
-# just using FastAPI's oauth2 helper, not real validation
+# [Spec §2.3] Resource Endpoint (protected)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/token")
 
-# this just checks if the token is in our dict, nothing fancy
-def get_current_token(token: str = Depends(oauth2_scheme)):
-    if token not in tokens:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    return tokens[token]
+def get_current_token(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    access_token = db.query(AccessToken).filter(
+        AccessToken.token == token,
+        AccessToken.expires_at > datetime.utcnow()
+    ).first()
+    if not access_token:
+        raise HTTPException(status_code=401, detail="invalid_token")
+    return {"client_id": access_token.client_id}
 
-
-# this is a fake protected resource, just returns a message if you have a token
 @app.get("/resource")
 def protected_resource(token_data: dict = Depends(get_current_token)):
     return {"message": "You have accessed a protected resource!", "client_id": token_data["client_id"]}
