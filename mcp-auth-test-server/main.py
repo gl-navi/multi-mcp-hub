@@ -11,7 +11,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.security import OAuth2PasswordBearer
 from typing import Optional
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timedelta
 import secrets
 import os
 
@@ -175,15 +175,25 @@ def token(
     # Mark code as used
     auth_code.used = True
     
-    # Create access token
+    # Create access token with 1 hour expiration
     access_token_value = secrets.token_urlsafe(32)
-    access_token = AccessToken(token=access_token_value, client_id=client_id, resource=auth_code.resource)
+    expires_at = datetime.utcnow() + timedelta(hours=1)
+    access_token = AccessToken(
+        token=access_token_value,
+        client_id=client_id,
+        resource=auth_code.resource,
+        expires_at=expires_at
+    )
     db.add(access_token)
     db.commit()
     
     # [Spec §2.2.2] Return access_token and token_type
-    # Optionally include resource in token response if present
-    response = {"access_token": access_token_value, "token_type": "bearer"}
+    response = {
+        "access_token": access_token_value,
+        "token_type": "Bearer",  # Case sensitive as per spec
+        "expires_in": 3600,      # 1 hour in seconds
+        "scope": "read write"    # Include granted scopes
+    }
     if auth_code.resource:
         response["resource"] = auth_code.resource
     return response
