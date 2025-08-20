@@ -5,3 +5,9 @@ pycparser==2.22
 wheel==0.45.1
 uvicorn[standard]>=0.30.0
 gunicorn>=21.2.0
+fastapi
+fastmcp
+boto3
+dotenv
+stytch
+sqlalchemy

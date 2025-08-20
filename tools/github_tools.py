@@ -9,6 +9,23 @@ from constants import GITHUB_API_URL
 mcp = FastMCP(name="github_tools", stateless_http=True)
 
 
+from dotenv import load_dotenv
+
+from starlette.requests import Request as StarletteRequest
+from starlette.responses import JSONResponse
+from fastmcp.server.auth import BearerAuthProvider
+from fastmcp.server.dependencies import get_access_token, AccessToken
+import os
+
+
+load_dotenv()
+
+auth = BearerAuthProvider(
+    jwks_uri=f"{os.getenv('STYTCH_DOMAIN')}/.well-known/jwks.json",
+    issuer=os.getenv("STYTCH_DOMAIN"),
+    algorithm="RS256",
+    audience=os.getenv("STYTCH_PROJECT_ID")
+)
 def get_headers() -> Dict[str, str]:
     """Returns HTTP headers required for GitHub API requests."""
     return {

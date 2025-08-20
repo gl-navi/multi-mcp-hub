@@ -11,6 +11,11 @@ from config import settings
 from github_mcp_server import create_gl_github_mcp_server
 from middleware import setup_middleware
 
+from starlette.middleware import Middleware
+
+from dotenv import load_dotenv
+load_dotenv()
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO if not settings.DEBUG else logging.DEBUG,
