@@ -5,6 +5,9 @@
         },
         {
             "path": "../mcp-streamable-http"
+        },
+        {
+            "path": "../../Zoran/vs-code-project/mcp-oauth"
         }
     ]
 }
