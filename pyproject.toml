@@ -18,9 +18,9 @@ dependencies = [
     "cryptography==45.0.5",
     "pycparser==2.22",
     "wheel==0.45.1",
-    "dotenv",
-    "stytch",
-    "sqlalchemy",
+     "dotenv>=0.9.9",
+    "stytch>=13.11.0",
+    "sqlalchemy>=2.0.41",
 ]
 
 [build-system]
