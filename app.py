@@ -6,10 +6,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from aws_mcp_server import create_gl_aws_mcp_server
-from config import settings
-from github_mcp_server import create_gl_github_mcp_server
-from middleware import setup_middleware
+from mcp_servers.aws_mcp_server import create_gl_aws_mcp_server
+from config.app_config import settings
+from mcp_servers.github_mcp_server import create_gl_github_mcp_server
+from middleware.middleware import setup_middleware
 
 from starlette.middleware import Middleware
 
@@ -43,7 +43,7 @@ class MCPManager:
         logger.info("MCP servers stopped")
 
 
-def create_app() -> FastAPI:
+def create_FASTAPI_app() -> FastAPI:
     """Create and configure FastAPI application."""
     mcp_manager = MCPManager()
     
@@ -103,5 +103,5 @@ def create_app() -> FastAPI:
     return app
 
 
-# Create the app instance
-app = create_app()
+# Create the FAST API app instance
+app = create_FASTAPI_app()

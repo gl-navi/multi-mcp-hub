@@ -1,0 +1,8 @@
+{
+    "python.defaultInterpreterPath": "${workspaceFolder}/mcp_hub_env/bin/python",
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/mcp_hub_env/lib/python3.13/site-packages"
+    ],
+    "python.terminal.activateEnvironment": true,
+    "python.analysis.diagnosticMode": "workspace"
+}
