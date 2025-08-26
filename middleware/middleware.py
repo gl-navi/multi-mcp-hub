@@ -5,6 +5,7 @@ from typing import Callable
 
 from fastapi import FastAPI, Request, Response, status
 from fastapi.responses import JSONResponse
+from .auth import AuthMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -38,5 +39,6 @@ def setup_middleware(app: FastAPI) -> None:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(AuthMiddleware)
     app.middleware("http")(add_process_time_header)
     app.add_exception_handler(Exception, catch_all_exceptions_handler)
