@@ -29,5 +29,14 @@ async def catch_all_exceptions_handler(request: Request, exc: Exception) -> JSON
 
 def setup_middleware(app: FastAPI) -> None:
     """Setup all middleware for the application."""
+    from fastapi.middleware.cors import CORSMiddleware
+    from config.app_config import settings
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     app.middleware("http")(add_process_time_header)
     app.add_exception_handler(Exception, catch_all_exceptions_handler)

@@ -1,5 +1,6 @@
 """Application factory and configuration."""
 import contextlib
+import json
 import logging
 from contextlib import asynccontextmanager
 
@@ -7,14 +8,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from mcp_servers.aws_mcp_server import create_gl_aws_mcp_server
+
+from dotenv import load_dotenv
+load_dotenv()
 from config.app_config import settings
 from mcp_servers.github_mcp_server import create_gl_github_mcp_server
 from middleware.middleware import setup_middleware
 
 from starlette.middleware import Middleware
 
-from dotenv import load_dotenv
-load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -61,19 +63,21 @@ def create_FASTAPI_app() -> FastAPI:
         docs_url="/docs" if not settings.is_production else None,
         redoc_url="/redoc" if not settings.is_production else None,
     )
-    
-    # Add CORS middleware
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.CORS_ORIGINS,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-    
+        
     # Setup custom middleware
     setup_middleware(app)
     
+    
+    # MCP well-known endpoint
+    @app.get("/.well-known/oauth-protected-resource/mcp")
+    async def oauth_protected_resource_metadata():
+        """
+        OAuth 2.0 Protected Resource Metadata endpoint for MCP client discovery.
+        Required by the MCP specification for authorization server discovery.
+        """
+        response = json.loads(settings.METADATA_JSON_URL)
+        return response
+
     # Health check endpoint
     @app.get(settings.HEALTH_CHECK_PATH, include_in_schema=False, tags=["health"])
     async def health_check():
