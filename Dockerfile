@@ -13,8 +13,11 @@ COPY requirements.txt pyproject.toml ./
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir -e .
 
+
 # Copy application code
 COPY . .
+COPY start.sh start.sh
+RUN chmod +x start.sh
 
 # Create non-root user
 RUN useradd --create-home --shell /bin/bash app
@@ -22,10 +25,11 @@ USER app
 
 # Expose port
 EXPOSE 8000
+EXPOSE 10000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD ["/bin/bash", "/app/healthcheck.sh"]
 
-# Run with gunicorn for production
-CMD ["gunicorn", "--config", "gunicorn.conf.py", "app:app"]
+# Entrypoint uses start.sh to select prod/dev mode
+CMD ["./start.sh"]
