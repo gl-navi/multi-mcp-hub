@@ -29,7 +29,9 @@ scalekit_client = ScalekitClient(
 # Authentication middleware
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        if request.url.path.startswith("/.well-known/"):
+        # Allow unauthenticated access to /.well-known/*, /health, and /info endpoints
+        allowed_paths = ["/.well-known/", "/health", "/info","/docs"]
+        if any(request.url.path.startswith(path) for path in allowed_paths):
             return await call_next(request)
 
         try:
