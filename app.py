@@ -68,15 +68,23 @@ def create_FASTAPI_app() -> FastAPI:
     setup_middleware(app)
     
     
-    # MCP well-known endpoint
-    @app.get("/.well-known/oauth-protected-resource/mcp")
-    async def oauth_protected_resource_metadata():
+    # MCP well-known discovery endpoints for each server
+    @app.get("/.well-known/oauth-protected-resource/github/mcp")
+    async def github_oauth_protected_resource_metadata():
         """
-        OAuth 2.0 Protected Resource Metadata endpoint for MCP client discovery.
+        OAuth 2.0 Protected Resource Metadata endpoint for GitHub MCP server discovery.
         Required by the MCP specification for authorization server discovery.
         """
-        response = json.loads(settings.METADATA_JSON_URL)
+        response = settings.get_server_metadata("github")
         return response
+
+    @app.get("/.well-known/oauth-protected-resource/aws/mcp")
+    async def aws_oauth_protected_resource_metadata():
+        """
+        OAuth 2.0 Protected Resource Metadata endpoint for AWS MCP server discovery.
+        Required by the MCP specification for authorization server discovery.
+        """
+        return settings.get_server_metadata("aws")
 
     # Health check endpoint
     @app.get(settings.HEALTH_CHECK_PATH, include_in_schema=False, tags=["health"])
@@ -99,10 +107,11 @@ def create_FASTAPI_app() -> FastAPI:
             "environment": settings.ENVIRONMENT
         }
     
-    # Mount MCP applications
-    app.mount("/github", mcp_manager.github_mcp.streamable_http_app())
-    app.mount("/aws", mcp_manager.aws_mcp.streamable_http_app())
-    
+   
+    # Mount MCP applications on separate endpoints with /mcp suffix
+    app.mount("/github/mcp", mcp_manager.github_mcp.streamable_http_app())
+    app.mount("/aws/mcp", mcp_manager.aws_mcp.streamable_http_app())
+
     logger.info(f"Application created - Environment: {settings.ENVIRONMENT}")
     return app
 

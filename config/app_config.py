@@ -1,4 +1,5 @@
 """Application configuration."""
+import json
 import os
 
 
@@ -37,34 +38,23 @@ class Settings:
     SCALEKIT_RESOURCE_DOCS_URL: str = os.environ.get("SCALEKIT_RESOURCE_DOCS_URL", "")
     CLIENT_ID: str = os.environ.get("CLIENT_ID", "")
     CLIENT_SECRET: str = os.environ.get("CLIENT_SECRET", "")
-    
-    
-    METADATA_JSON_URL: str = os.environ.get("METADATA_JSON_URL", "")
+    METADATA_GITHUB_MCP_JSON_URL: str = os.environ.get("METADATA_GITHUB_MCP_JSON_URL", "")
+    METADATA_AWS_MCP_JSON_URL: str = os.environ.get("METADATA_AWS_MCP_JSON_URL", "")
     
     @property
     def is_production(self) -> bool:
         """Check if running in production."""
         return self.ENVIRONMENT == "production"
     
-    def __post_init__(self):
-        if not self.SCALEKIT_RESOURCE_IDENTIFIER:
-            raise ValueError("SCALEKIT_RESOURCE_IDENTIFIER environment variable not set")
-        if not self.SCALEKIT_CLIENT_ID:
-            raise ValueError("SCALEKIT_CLIENT_ID environment variable not set")
-        if not self.SCALEKIT_CLIENT_SECRET:
-            raise ValueError("SCALEKIT_CLIENT_SECRET environment variable not set")
-        if not self.SCALEKIT_RESOURCE_DOCS_URL:
-            raise ValueError("SCALEKIT_RESOURCE_DOCS_URL environment variable not set")
-        if not self.SCALEKIT_ENVIRONMENT_URL:
-            raise ValueError("SCALEKIT_ENVIRONMENT_URL environment variable not set")
-        if not self.TAVILY_API_KEY:
-            raise ValueError("TAVILY_API_KEY environment variable not set")
-        if not self.SCALEKIT_RESOURCE_METADATA_URL:
-            raise ValueError("SCALEKIT_RESOURCE_METADATA_URL environment variable not set")
-        if not self.SCALEKIT_AUTHORIZATION_SERVERS:
-            raise ValueError("SCALEKIT_AUTHORIZATION_SERVERS environment variable not set")
-        if not self.SCALEKIT_AUDIENCE_NAME:
-            raise ValueError("SCALEKIT_AUDIENCE_NAME environment variable not set")
+    import json
 
-
+    def get_server_metadata(self, server_name: str) -> dict:
+        """Get server-specific metadata for OAuth discovery."""
+        if server_name == "github":
+            return json.loads(self.METADATA_GITHUB_MCP_JSON_URL)
+        elif server_name == "aws":
+            return json.loads(self.METADATA_AWS_MCP_JSON_URL)
+        else:
+            raise ValueError(f"Unknown server name in get_server_metadata: {server_name}")
+        
 settings = Settings()

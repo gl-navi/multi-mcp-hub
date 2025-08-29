@@ -55,11 +55,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
             )
             
             is_tool_call = request_data.get("method") == "tools/call"
-            
+
             required_scopes = []
-            
+
             if is_tool_call:
-                required_scopes = ["mcp:aws", "mcp:github"]  # Require both AWS and GitHub scopes for tool calls
+                print("[DEBUG] tool call request_data:", request_data)
+                logger.info(f"[DEBUG] tool call request_data: {request_data}")
+                # For now, keep requiring both scopes
+                required_scopes = ["mcp:aws", "mcp:github"]
                 validation_options.required_scopes = required_scopes
             
             try:
