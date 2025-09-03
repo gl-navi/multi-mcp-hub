@@ -40,7 +40,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
         print(f"[DEBUG] Request headers: {dict(request.headers)}")
         print(f"[DEBUG] Request body: {request_body}")
         # Allow unauthenticated access to /.well-known/*, /health, and /info endpoints
-        allowed_paths = ["/.well-known/", "/health", "/info", "/docs"]
+        allowed_paths = [
+            "/.well-known/",
+            "/health",
+            "/info",
+            "/docs",
+            "/aws/mcp/.well-known/",
+            "/github/mcp/.well-known/"
+        ]
         if any(request.url.path.startswith(path) for path in allowed_paths):
             return await call_next(request)
 
